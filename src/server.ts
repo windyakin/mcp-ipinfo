@@ -9,15 +9,18 @@ export function createServer(databases: LoadedDatabase[]): McpServer {
     version: "0.1.0",
   });
 
-  server.tool(
+  server.registerTool(
     "lookup_ip",
-    "Look up geolocation and network information for an IP address using the loaded MMDB database",
     {
-      ip: z
-        .string()
-        .describe(
-          "IPv4 or IPv6 address to look up (e.g. 8.8.8.8, 2001:4860:4860::8888)"
-        ),
+      description:
+        "Look up geolocation and network information for an IP address using the loaded MMDB database",
+      inputSchema: {
+        ip: z
+          .string()
+          .describe(
+            "IPv4 or IPv6 address to look up (e.g. 8.8.8.8, 2001:4860:4860::8888)"
+          ),
+      },
     },
     async ({ ip }) => {
       const result = lookupIp(databases, ip);
@@ -29,14 +32,17 @@ export function createServer(databases: LoadedDatabase[]): McpServer {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "lookup_ips",
-    "Look up information for multiple IP addresses at once (max 100)",
     {
-      ips: z
-        .array(z.string())
-        .max(100)
-        .describe("List of IPv4 or IPv6 addresses to look up"),
+      description:
+        "Look up information for multiple IP addresses at once (max 100)",
+      inputSchema: {
+        ips: z
+          .array(z.string())
+          .max(100)
+          .describe("List of IPv4 or IPv6 addresses to look up"),
+      },
     },
     async ({ ips }) => {
       const results = ips.map((ip) => lookupIp(databases, ip));
@@ -46,10 +52,11 @@ export function createServer(databases: LoadedDatabase[]): McpServer {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "get_database_info",
-    "Get information about the loaded MMDB databases",
-    {},
+    {
+      description: "Get information about the loaded MMDB databases",
+    },
     async () => {
       const info = getDatabaseInfo(databases);
       return {
