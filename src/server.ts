@@ -1,7 +1,11 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import type { LoadedDatabase } from "./types.js";
+import type { LoadedDatabase, LookupResult } from "./types.js";
 import { lookupIp, getDatabaseInfo } from "./lookup.js";
+
+function toJsonText(value: unknown): string {
+  return JSON.stringify(value, null, 2);
+}
 
 export function createServer(databases: LoadedDatabase[]): McpServer {
   const server = new McpServer({
@@ -13,7 +17,7 @@ export function createServer(databases: LoadedDatabase[]): McpServer {
     "lookup_ip",
     {
       description:
-        "Look up geolocation and network information for an IP address using the loaded MMDB database",
+        "Look up geolocation and network information for an IP address. Returns a JSON object keyed by database filename, with each entry containing the raw maxmind response.",
       inputSchema: {
         ip: z
           .string()
@@ -24,9 +28,9 @@ export function createServer(databases: LoadedDatabase[]): McpServer {
     },
     async ({ ip }) => {
       const result = lookupIp(databases, ip);
-      const isError = result.startsWith("Error:");
+      const isError = "error" in result;
       return {
-        content: [{ type: "text", text: result }],
+        content: [{ type: "text", text: toJsonText(result) }],
         isError,
       };
     }
@@ -36,7 +40,7 @@ export function createServer(databases: LoadedDatabase[]): McpServer {
     "lookup_ips",
     {
       description:
-        "Look up information for multiple IP addresses at once (max 100)",
+        "Look up information for multiple IP addresses at once (max 100). Returns a JSON object keyed by IP, each value keyed by database filename.",
       inputSchema: {
         ips: z
           .array(z.string())
@@ -45,9 +49,12 @@ export function createServer(databases: LoadedDatabase[]): McpServer {
       },
     },
     async ({ ips }) => {
-      const results = ips.map((ip) => lookupIp(databases, ip));
+      const results: Record<string, LookupResult> = {};
+      for (const ip of ips) {
+        results[ip] = lookupIp(databases, ip);
+      }
       return {
-        content: [{ type: "text", text: results.join("\n---\n") }],
+        content: [{ type: "text", text: toJsonText(results) }],
       };
     }
   );
@@ -55,12 +62,14 @@ export function createServer(databases: LoadedDatabase[]): McpServer {
   server.registerTool(
     "get_database_info",
     {
-      description: "Get information about the loaded MMDB databases",
+      description:
+        "Get metadata about the loaded MMDB databases as a JSON object keyed by database filename.",
     },
     async () => {
-      const info = getDatabaseInfo(databases);
       return {
-        content: [{ type: "text", text: info }],
+        content: [
+          { type: "text", text: toJsonText(getDatabaseInfo(databases)) },
+        ],
       };
     }
   );
